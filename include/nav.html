@@ -1,0 +1,47 @@
+<nav id='nav' class='navbar navbar-inverse navbar-fixed-top'>
+
+</nav>
+<script id='template-nav' type='text/template'>
+    <div class='container'>
+        <div class='navbar-header'>
+            <a class='navbar-brand' href='/index.html'>Susuan Pay Monitor</a>
+        </div>
+        <div id='navbar' class='collapse navbar-collapse'>
+            <ul class='nav navbar-nav'>
+                <%if (U.checkPrivilege(C.PRIVILEGE.TMP)) {%>
+                <li><a href='/list.html'>订单</a></li>
+                <%}%>
+                <%if (U.checkPrivilege(C.PRIVILEGE.TMP)) {%>
+                <li><a href='/create.html'>退费</a></li>
+                <%}%>
+            </ul>
+            <ul class='nav navbar-nav navbar-right'>
+                <li class='dropdown'>
+                    <a href='#' class='dropdown-toggle' data-toggle='dropdown' role='button'>
+                        你好，
+                        <%=username%>
+                        <span class='caret'></span>
+                    </a>
+                    <ul class='dropdown-menu'>
+                        <li><a id='logout' href='javascript:;'>退出</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</script>
+<script>
+(function(){
+    // check user and show with privilege
+    var info = U.getUserInfo();
+    if (_.isEmpty(info) || _.isEmpty(info.token)) {
+        console.error('invalid user', info);
+        U.logout();
+        return;
+    }
+    $('#nav').html(_.template($('#template-nav').html())(info));
+    $('#logout').click(function(){
+        U.logout();
+    });
+})();
+</script>

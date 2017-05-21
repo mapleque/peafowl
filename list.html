@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<!--#include file='include/head.html' -->
+<!--#include file='include/nav.html' -->
+<div class='container'>
+    <h1>List</h1>
+    <div id='body'></div>
+</div>
+<!--#include file='include/foot.html' -->
+<!--#include file='include/template.html' -->
+<script>
+(function(){
+    R.table({
+        data:[{
+            text:'#',
+            name:'id'
+        },{
+            text:'data',
+            name:'data'
+        },{
+            text:'op',
+            name:'op',
+            render:function(data, row){
+                if (!data) {
+                    // privilege
+                    if (U.checkPrivilege(C.PRIVILEGE.TMP)) {
+                    return R.button({
+                        label:'do',
+                        type:C.ENUM.BTN_TYPE_UPDATE
+                    }, function(){
+                        // do sth...
+                    });
+                    } else {
+                        // forbiden
+                        return '';
+                    }
+                }
+            }
+        }],
+        action:{
+            url:'/list',
+            filter:[{
+                text:'id',
+                name:'id'
+            },{
+                text:'data',
+                name:'data',
+                type:C.ENUM.PARAM_TYPE_FILTER_RADIO,
+                list:{
+                    0:'option0',
+                    1:'option1'
+                },
+                default_value:"0"
+            }],
+            sort:[{
+                name:'id',
+                reverse:true
+            }],
+            requestOnSearch:true
+        }
+    }, $('#body'));
+})();
+</script>
+</html>
+

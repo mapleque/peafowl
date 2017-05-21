@@ -1,0 +1,16 @@
+body>.container {
+    margin-top:51px;
+}
+
+.login-title {
+    text-align:center;
+    margin:51px;
+}
+
+table .btn {
+    padding:0 8px;
+}
+
+nav.nav-pager {
+    text-align:center;
+}

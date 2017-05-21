@@ -1,0 +1,504 @@
+<script id='template-form' type='text/template'>
+<div class='panel panel-default'>
+    <div class='panel-body'>
+        <form class='form-horizontal'>
+        <%_.map(form.params, function(ele){%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_TEXT) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <input type='text' class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>'>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_STATIC) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>' style='<%=ele.style ? ele.style : ''%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <p class='form-control-static' style='<%=ele.style ? ele.style : ''%>'><%=typeof ele.parse === 'function' ? ele.parse(ele.value) : ele.value%></p>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_RADIO) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <%_.map(ele.options, function(text, value){%>
+                    <label class='radio-inline'>
+                        <input type='radio' name='<%=ele.name%>' value='<%=value%>'><%=text%>
+                    </label>
+                    <%})%>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_AREA) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <textarea class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>'></textarea>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_HIDE) {%>
+            <%}%>
+        <%})%>
+            <div class='form-group'>
+                <div class='col-sm-offset-2 col-sm-10'>
+                    <button type='submit' class='btn btn-success'>提交</button>
+                </div>
+            </div>
+            <div class='alert alert-success' role='alert'></div>
+            <div class='alert alert-danger' role='alert'></div>
+        </form>
+    </div>
+</div>
+</script>
+<script>
+(function(){
+    /**
+     * ele for form template
+     *  {
+     *      form:{
+     *          params:[{
+     *              text:<string>,
+     *              name:<string>,
+     *              type:C.ENUM.PARAM_TYPE_*,
+     *              placeholder:<string>,
+     *          }, ...]
+     *      }
+     *  }
+     * @param elements [{
+     *      text:<string>, // input label
+     *      name:<string>, // input name (form param key)
+     *      type:C.ENUM.PARAM_TYPE_*, // input type
+     *      parse: <function>, // input value parse
+     *      options: {<value>:<text>}, // option list
+     *  }, ...]
+     */
+    R.form = function(url, elements, actionFn, $dom){
+        var template = _.template($('#template-form').html())({
+            form:{ params:elements }
+        });
+        var $formDom = $(template);
+        $formDom.find('.alert').hide();
+        if ($dom) {
+            $dom.html($formDom);
+        }
+        $formDom.find('form').submit(function(e){
+            e.preventDefault();
+            $formDom.find('.alert').hide();
+            H.action('post', url, elements, function(){
+                $formDom.find('.alert-success').html('提交成功').show();
+                typeof actionFn === 'function' || actionFn();
+            }, function(res){
+                // on error
+                if (typeof res === 'object' && typeof res.msg === 'string') {
+                    res = res.msg;
+                }
+                $formDom.find('.alert-danger').html(res).show();
+            });
+        });
+        return $formDom;
+    };
+})();
+</script>
+<script id='template-button' type='text/template'>
+<%
+    var btnType = {};
+    btnType[C.ENUM.BTN_TYPE_ADD] = 'btn-success';
+    btnType[C.ENUM.BTN_TYPE_UPDATE] = 'btn-warning';
+    btnType[C.ENUM.BTN_TYPE_DELETEs] = 'btn-danger';
+    btnType[C.ENUM.BTN_TYPE_GET] = 'btn-default';
+%>
+<%if (button.modal) {%>
+<a class='btn <%=btnType[button.type]%>' data-toggle='modal' data-target='#modal'><%=button.label%></a>
+<%} else {%>
+<a class='btn <%=btnType[button.type]%>'><%=button.label%></a>
+<%}%>
+</script>
+<script>
+(function(){
+    /**
+     * ele for button
+     *  {
+     *      button:{
+     *          label:<string>,
+     *          type:C.ENUM.BTN_TYPE_*,
+     *          modal:<bool>, // is modal button
+     *      }
+     *  }
+     */
+    R.button = function(elements, actionFn, $dom){
+        var template = _.template($('#template-button').html())({
+            button:{
+                label:elements.label,
+                type:elements.type,
+                modal:elements.modal,
+            }
+        });
+        var $buttonDom = $(template);
+        if ($dom) {
+            $dom.html($buttonDom);
+        }
+        if (typeof actionFn == 'function') {
+            $buttonDom.click(function(){
+                actionFn(elements, $buttonDom);
+            });
+        }
+        return $buttonDom;
+    };
+})();
+</script>
+<script id='template-table' type='text/template'>
+<div class='panel panel-default'>
+    <div class='panel-body'>
+        <%if (table.form.filters){%>
+        <form class='form-inline'>
+        <%_.map(table.form.filters, function(ele){%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_FILTER_TEXT) {%>
+            <div class='form-group'>
+                <label for='<%=ele.name%>'><%=ele.label%></label>
+                <input type='text' class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
+            </div>
+            <%}%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_FILTER_RADIO) {%>
+            <div class='form-group'>
+                <label for='<%=ele.name%>'><%=ele.label%></label>
+                <%_.map(ele.list, function(value, key){%>
+                <div class='radio'>
+                    <label>
+                        <input type='radio' name='<%=ele.name%>' value='<%=key%>' <%=ele.value == key ? 'checked':''%>>
+                        <%=value%>
+                    </label>
+                </div>
+                <%})%>
+            </div>
+            <%}%>
+        <%})%>
+            <button type='submit' class='btn btn-default'>查询</button>
+        </form>
+        <%}%>
+    </div>
+    <table class='table table-striped table-hover'>
+        <thead>
+            <tr>
+            <%_.map(table.head, function(ele){%>
+                <th><%=ele.label%></th>
+            <%})%>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+<nav class='nav-pager'>
+</nav>
+</script>
+<script id='template-table-row' type='text/template'>
+    <%if (_.isEmpty(table.body)){%>
+        <tr><td colspan='<%=table.head.length%>'>暂无数据</td></tr>
+    <%}%>
+    <%_.map(table.body, function(row){%>
+        <tr>
+        <%_.map(table.head, function(ele){%>
+            <%if (typeof row[ele.name].value != 'object') {%>
+                <td><%=row[ele.name].value%></td>
+            <%} else {%>
+            <td></td>
+            <%}%>
+        <%})%>
+        </tr>
+    <%})%>
+</script>
+<script id='template-table-pager' type='text/template'>
+    <%if (table.form.pager) {%>
+        <ul class='pagination'>
+            <%if (table.form.pager.current > 1) {%>
+            <li>
+                <a href='javascript:;' data-page=<%=table.form.pager.current-1%>>
+                    <span>&laquo;</span>
+                </a>
+            </li>
+            <%} else {%>
+            <li class='disabled'>
+                <span>&laquo;</span>
+            </li>
+            <%}%>
+            <%for (var i = table.form.pager.start; i <= table.form.pager.end; i++) {%>
+                <%if (table.form.pager.current == i) {%>
+            <li class='active'><span href='javascript:;'><%=i%></span></li>
+                <%} else {%>
+            <li><a href='javascript:;' data-page=<%=i%>><%=i%></a></li>
+                <%}%>
+            <%}%>
+            <%if (table.form.pager.current < table.form.pager.end) {%>
+            <li>
+                <a href='javascript:;' data-page=<%=table.form.pager.current+1%>>
+                    <span>&raquo;</span>
+                </a>
+            </li>
+            <%} else {%>
+            <li class='disabled'>
+                <span>&raquo;</span>
+            </li>
+            <%}%>
+        </ul>
+    <%}%>
+</script>
+<script>
+(function(){
+    /**
+     * ele for table
+     *  {
+     *      table:{
+     *          form:{
+     *              filters:[{
+     *                  name:<string>,
+     *                  label:<string>,
+     *                  type:C.ENUM.PARAM_TYPE_FILTER_*,
+     *                  placeholder:<string>
+     *              }, ...],
+     *              sort:[{
+     *                  name:<string>,
+     *                  reverse:<bool>
+     *              }, ...],
+     *              range:[<int>,<int>]
+     *          },
+     *          pager:{
+     *              current:<int>,
+     *              start:<int>,
+     *              end:<int>
+     *          }
+     *          head:[{
+     *              label:<string>
+     *          }, ...],
+     *          body:[{
+     *              <name0>:{
+     *                  value:<string>,
+     *              },
+     *              <name1>:{
+     *                  value:<string>,
+     *              },
+     *              ...
+     *          }, ...]
+     *      }
+     *  }
+     * @param elements {
+     *      data:[{
+     *          text:<string>,
+     *          name:<string>,
+     *          render:<function(data, row)>,
+     *      }, ...],
+     *      action:{
+     *          url:<string>,
+     *          filter:[{
+     *              name:<string>,
+     *              type:C.ENUM.PARAM_TYPE_FILTER_*,
+     *              parse:<function>,
+     *          }, ...],
+     *          sort:[{
+     *              name:<string>,
+     *              reverse:<bool>,
+     *          }, ...],
+     *          requestOnSearch:<bool>, // if true, init page without load data, only request on search
+     *      }
+     *  }
+     */
+    R.table = function(elements, $dom){
+        var table= {
+            head:[],
+            form:{},
+            body:[],
+            pager:{}
+        };
+        // build table head
+        _.map(elements.data, function(ele){
+            table.head.push({
+                label:ele.text,
+                name:ele.name
+            });
+        });
+        // deal filter
+        if (elements.action.filter) {
+            table.form.filters = [];
+            _.map(elements.action.filter, function(ele){
+                table.form.filters.push({
+                    name:ele.name,
+                    label:ele.text || ele.name,
+                    type:ele.type || C.ENUM.PARAM_TYPE_FILTER_TEXT,
+                    placeholder:ele.placeholder || ele.name,
+                    list:ele.list || [],
+                    value:ele.default_value || ''
+                });
+            });
+        }
+        // init sort
+        if (elements.action.sort) {
+            table.form.sort = [];
+            _.map(elements.action.sort, function(ele){
+                ele.type = C.ENUM.PARAM_TYPE_STATIC;
+                table.form.sort.push(ele);
+            });
+        }
+        // init range
+        if (elements.action.range) {
+            table.form.range = elements.action.range;
+        } else {
+            table.form.range = [0,10];
+        }
+        var pageSize = table.form.range[1];
+
+        var generalPager = function(range){
+            var current = parseInt(range[0] / range[1]) + 1;
+            var start = current - 5;
+            var end = start + 10;
+            return {
+                start:(start > 0 ? start : 1),
+                end:end,
+                current:current
+            };
+        };
+        // deal pager
+        table.form.pager = generalPager(table.form.range);
+        var loadData = function(table, $root){
+            // general param
+            H.action('get', elements.action.url, [{
+                name:'filter',
+                type:C.ENUM.PARAM_TYPE_ARRAY,
+                value:table.form.filters
+            },{
+                name:'sort',
+                type:C.ENUM.PARAM_TYPE_ARRAY,
+                value:table.form.sort
+            },{
+                name:'range',
+                type:C.ENUM.PARAM_TYPE_TEXT,
+                multiple:function(){
+                    return table.form.range
+                }
+            }], function(res){
+                // build table body
+                table.body = [];
+                _.map(res, function(row){
+                    var rowData = {};
+                    _.map(elements.data, function(ele){
+                        var data = row[ele.name];
+                        if (typeof ele.render === 'function'){
+                            rowData[ele.name] = {
+                                value:ele.render(data, row)
+                            };
+                        } else {
+                            rowData[ele.name] = {
+                                value:data
+                            };
+                        }
+                    });
+                    table.body.push(rowData);
+                });
+                var rows = _.template($('#template-table-row').html())({table:table});
+                var $rows = $(rows);
+                $root.find('tbody').html($rows);
+                // if element value is dom, add by jquery
+                _.map(table.body, function(rowsData, i){
+                    _.map(table.head, function(eleData, j){
+                        if (typeof rowsData[eleData.name].value == 'object') {
+                            // 这里直接用siblings找会找不到
+                            // 只能先放在dom中，然后用parent找
+                            $rows.parent().find('tr').eq(i)
+                                .find('td').eq(j)
+                                .html(rowsData[eleData.name].value);
+                        }
+                    });
+                });
+
+                // update pager
+                if (table.body.length < pageSize) {
+                    table.form.pager.end = table.form.pager.current;
+                }
+                var pager = _.template($('#template-table-pager').html())({table:table});
+                var $pager = $root.siblings('nav.nav-pager');
+                $pager.html(pager);
+                // add pager event
+                $pager.find('a').click(function(){
+                    var target = $(this).data('page');
+                    var diff = target - table.form.pager.current;
+                    table.form.range = [table.form.range[0] + diff * pageSize, pageSize];
+                    table.form.pager = generalPager(table.form.range);
+                    loadData(table, $root);
+                });
+            });
+        };
+
+        var template = _.template($('#template-table').html())({table:table});
+        var $tableDom = $(template);
+        if ($dom) {
+            $dom.html($tableDom);
+        }
+        if (elements.action.requestOnSearch !== true) {
+            loadData(table, $tableDom);
+        }
+        $tableDom.find('form').submit(function(e){
+            e.preventDefault();
+            loadData(table, $tableDom);
+        });
+        // add filter event
+        return template;
+    };
+})();
+</script>
+<script id='template-modal' type='text/template'>
+<div id='modal' class='modal fade' tabindex='-1' role='dialog'>
+    <div class='modal-dialog' role='document'>
+        <div class='modal-content'>
+            <div class='modal-header'>
+                <button type='button' class='close' data-dismiss='modal'>
+                    <span aria-hidden='true'>&times;</span>
+                </button>
+                <h4></h4>
+            </div>
+            <div class='modal-body'></div>
+        </div>
+    </div>
+</div>
+</script>
+<script>
+(function(){
+    var modal = _.template($('#template-modal').html())();
+    var $modal = $(modal);
+    $(document.body).append($modal);
+    R.modal = function(elements){
+        $modal.find('h4').html(elements.title);
+        $modal.find('div.modal-body').html(typeof elements.body === 'function' ? elements.body() : elements.body);
+        return $modal;
+    };
+})();
+</script>
+<script id='template-loading' type='text/template'>
+<div id='loading' class='modal fade' tabindex='-1' role='dialog' data-backdrop='static'>
+    <div class='modal-dialog' role='document'>
+        <div class='modal-content'>
+            <div class='modal-body'>正在请求数据，请耐心等待...</div>
+        </div>
+    </div>
+</div>
+</script>
+<script>
+(function(){
+    var modal = _.template($('#template-loading').html())();
+    var $modal = $(modal);
+    $(document.body).append($modal);
+    R.loading = function(ing){
+        ing ? $modal.modal('show') : $modal.modal('hide');
+    }
+})();
+</script>
+<script>
+    R.datetimepicker = function($dom){
+        $dom.datetimepicker({
+            format:'yyyy-mm-dd hh:ii:ss',
+            todayBtn:'linked'
+        }).on('changeDate', function(ev){
+            $dom.datetimepicker('hide');
+        });
+    };
+</script>
