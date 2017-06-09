@@ -1,0 +1,100 @@
+<script src='/assets/js/echarts.js'></script>
+<script id='template-chart' type='text/template'>
+<div class='echart' style='width:<%=width%>;height:<%=height%>;'></div>
+</script>
+<script>
+    R.chart = function($dom, width, height){
+        if (height === undefined) {
+            height = '300px';
+        }
+        if (width === undefined) {
+            width = '100%';
+        }
+        var div = $(_.template($('#template-chart').html())({
+            width:width,
+            height:height
+        }));
+        if ($dom) {
+            $dom.html(div);
+        }
+        return echarts.init(div[0]);
+    };
+    R.chartOption = function(conf){
+        switch (conf.type) {
+            case 'axis':
+                var option = {
+                    title: {
+                        text:conf.title,
+                        left:'center'
+                    },
+                    tooltip:{
+                        trigger:'axis',
+                        axisPointer:{
+                            animation:false
+                        }
+                    },
+                    dataZoom:[{
+                        show:false,
+                        realtime:true,
+                        start:0,
+                        end:100,
+                        xAxisIndex:[0]
+                    },{
+                        type:'inside',
+                        realtime:true,
+                        start:0,
+                        end:100,
+                        xAxisIndex:[0]
+                    }],
+                    grid:{
+                        show:true
+                    },
+                    legend: {
+                        top:'30',
+                        left:'100',
+                        data:conf.legend_data
+                    },
+                    xAxis: conf.xAxis,
+                    yAxis: conf.yAxis,
+                    series: conf.series
+                };
+                return option;
+                break;
+            case 'calendar':
+                var option = {
+                    title: {
+                        text:conf.title,
+                        left:'center'
+                    },
+                    tooltip:{
+                        trigger:'item'
+                    },
+                    visualMap:{
+                        show:false,
+                        min:conf.min,
+                        max:conf.max
+                    },
+                    calendar:[{
+                        top:100,
+                        left:'center',
+                        dayLabel:{
+                            nameMap:'cn'
+                        },
+                        range:conf.range,
+                        yearLabel:{
+                            formatter: '{start}-{end}'
+                        }
+                    }],
+                    series:[{
+                        type: 'heatmap',
+                        coordinateSystem: 'calendar',
+                        data:conf.data
+                    }]
+                };
+                return option;
+                break;
+            default:
+                return null;
+        }
+    };
+</script>
