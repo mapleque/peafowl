@@ -14,3 +14,14 @@ table .btn {
 nav.nav-pager {
     text-align:center;
 }
+
+.form-multy-inline .form-group {
+    margin:5px 0;
+}
+
+.input-append.datetime>input,
+.input-append.time>input,
+.input-append.date>input{
+    border:none;
+    outline:none;
+}

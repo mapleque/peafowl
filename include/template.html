@@ -3,11 +3,12 @@
     <div class='panel-body'>
         <form class='form-horizontal'>
         <%_.map(form.params, function(ele){%>
-            <%if (ele.type == C.ENUM.PARAM_TYPE_TEXT) {%>
+            <div class='param-elements'>
+            <%if (ele.type === undefined || ele.type == C.ENUM.PARAM_TYPE_TEXT) {%>
             <div class='form-group'>
                 <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
                 <div class='col-sm-10'>
-                    <input type='text' class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>'>
+                    <input type='text' class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
                 </div>
             </div>
             <%}%>
@@ -23,9 +24,9 @@
             <div class='form-group'>
                 <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
                 <div class='col-sm-10'>
-                    <%_.map(ele.options, function(text, value){%>
+                    <%_.map(ele.list, function(text, value){%>
                     <label class='radio-inline'>
-                        <input type='radio' name='<%=ele.name%>' value='<%=value%>'><%=text%>
+                        <input type='radio' name='<%=ele.name%>' value='<%=value%>' <%=ele.value == value?'checked':''%>><%=text%>
                     </label>
                     <%})%>
                 </div>
@@ -35,16 +36,48 @@
             <div class='form-group'>
                 <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
                 <div class='col-sm-10'>
-                    <textarea class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>'></textarea>
+                    <textarea class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>'><%=ele.value%></textarea>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_DATE) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <div class='input-append date form-control' data-date='<%=ele.value%>' data-date-format='yyyy-mm-dd'>
+                        <span class='add-on'><i class='glyphicon glyphicon-th'></i></span>
+                        <input type='text' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
+                    </div>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_DATETIME) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='col-sm-10'>
+                    <div class='input-append datetime form-control' data-date='<%=ele.value%>' data-date-format='yyyy-mm-dd hh:ii:ss'>
+                        <span class='add-on'><i class='glyphicon glyphicon-th'></i></span>
+                        <input type='text' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
+                    </div>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.type == C.ENUM.PARAM_TYPE_TEMPLATE) {%>
+            <div class='form-group'>
+                <label class='col-sm-2 control-label' for='<%=ele.name%>'><%=ele.text%></label>
+                <div class='template-root col-sm-10'>
                 </div>
             </div>
             <%}%>
             <%if (ele.type == C.ENUM.PARAM_TYPE_HIDE) {%>
+            <input type='hidden' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
             <%}%>
+            </div>
         <%})%>
             <div class='form-group'>
                 <div class='col-sm-offset-2 col-sm-10'>
                     <button type='submit' class='btn btn-success'>提交</button>
+                    <button type='reset' class='btn btn-danger'>清空</button>
                 </div>
             </div>
             <div class='alert alert-success' role='alert'></div>
@@ -84,19 +117,38 @@
         if ($dom) {
             $dom.html($formDom);
         }
+        _.map(elements, function(item, i) {
+            if (item.type === C.ENUM.PARAM_TYPE_TEMPLATE) {
+                $formDom.find('.param-elements').eq(i).find('.template-root').html(item.template);
+            }
+        });
+        $formDom.find('.alert-success').hide();
+        $formDom.find('.alert-danger').hide();
         $formDom.find('form').submit(function(e){
             e.preventDefault();
             $formDom.find('.alert').hide();
-            H.action('post', url, elements, function(){
+            H.general('post', url, elements, function(res, extra){
                 $formDom.find('.alert-success').html('提交成功').show();
-                typeof actionFn === 'function' || actionFn();
+                typeof actionFn === 'function' && actionFn(res, extra);
             }, function(res){
                 // on error
                 if (typeof res === 'object' && typeof res.msg === 'string') {
                     res = res.msg;
                 }
                 $formDom.find('.alert-danger').html(res).show();
-            });
+            }, $formDom);
+        });
+        $formDom.find('.datetime').find('input').datetimepicker({
+            autoclose:true,
+            minView:'hour',
+            format:'yyyy-mm-dd hh:ii:00',
+            todayBtn:'linked'
+        });
+        $formDom.find('.date').find('input').datetimepicker({
+            autoclose:true,
+            minView:'month',
+            format:'yyyy-mm-dd',
+            todayBtn:'linked'
         });
         return $formDom;
     };
@@ -109,9 +161,12 @@
     btnType[C.ENUM.BTN_TYPE_UPDATE] = 'btn-warning';
     btnType[C.ENUM.BTN_TYPE_DELETEs] = 'btn-danger';
     btnType[C.ENUM.BTN_TYPE_GET] = 'btn-default';
+    btnType[C.ENUM.BTN_TYPE_HREF] = 'btn-link';
 %>
 <%if (button.modal) {%>
 <a class='btn <%=btnType[button.type]%>' data-toggle='modal' data-target='#modal'><%=button.label%></a>
+<%} else if (button.href) {%>
+<a class='btn <%=btnType[button.type]%>', href='<%=button.href%>'><%=button.label%></a>
 <%} else {%>
 <a class='btn <%=btnType[button.type]%>'><%=button.label%></a>
 <%}%>
@@ -133,6 +188,7 @@
             button:{
                 label:elements.label,
                 type:elements.type,
+                href:elements.href||null,
                 modal:elements.modal,
             }
         });
@@ -153,17 +209,17 @@
 <div class='panel panel-default'>
     <div class='panel-body'>
         <%if (table.form.filters){%>
-        <form class='form-inline'>
+        <form class='form-inline form-multy-inline'>
         <%_.map(table.form.filters, function(ele){%>
-            <%if (ele.type === C.ENUM.PARAM_TYPE_FILTER_TEXT) {%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_TEXT) {%>
             <div class='form-group'>
-                <label for='<%=ele.name%>'><%=ele.label%></label>
+                <label for='<%=ele.name%>'><%=ele.label%>:</label>
                 <input type='text' class='form-control' name='<%=ele.name%>' placeholder='<%=ele.placeholder%>' value='<%=ele.value%>'>
             </div>
             <%}%>
-            <%if (ele.type === C.ENUM.PARAM_TYPE_FILTER_RADIO) {%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_RADIO) {%>
             <div class='form-group'>
-                <label for='<%=ele.name%>'><%=ele.label%></label>
+                <label for='<%=ele.name%>'><%=ele.label%>:</label>
                 <%_.map(ele.list, function(value, key){%>
                 <div class='radio'>
                     <label>
@@ -174,11 +230,37 @@
                 <%})%>
             </div>
             <%}%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_RANGE) {%>
+            <div class='form-group'>
+                <label for='<%=ele.name%>_from'><%=ele.label%>:</label>
+                <input type='text' class='form-control' name='<%=ele.name%>_from' placeholder='<%=ele.placeholder%>' value='<%=ele.value[0]%>'>
+                <label for='<%=ele.name%>_to'>至</label>
+                <input type='text' class='form-control' name='<%=ele.name%>_to' placeholder='<%=ele.placeholder%>' value='<%=ele.value[1]%>'>
+            </div>
+            <%}%>
+            <%if (ele.type === C.ENUM.PARAM_TYPE_DATE_RANGE) {%>
+            <div class='form-group'>
+                <label for='<%=ele.name%>_from'><%=ele.label%>:</label>
+                <div class='input-append date form-control' data-date='<%=ele.value[0]%>' data-date-format='yyyy-mm-dd'>
+                    <input type='text' name='<%=ele.name%>_from' placeholder='<%=ele.placeholder%>' value='<%=ele.value[0]%>'>
+                    <span class='add-on'><i class='glyphicon glyphicon-th'></i></span>
+                </div>
+                <label for='<%=ele.name%>_to'>至</label>
+                <div class='input-append date form-control' data-date='<%=ele.value[1]%>'>
+                    <input type='text' name='<%=ele.name%>_to' placeholder='<%=ele.placeholder%>' value='<%=ele.value[1]%>'>
+                    <span class='add-on'><i class='glyphicon glyphicon-th'></i></span>
+                </div>
+            </div>
+            <%}%>
+            <%if (ele.break_line){%>
+            <br>
+            <%}%>
         <%})%>
             <button type='submit' class='btn btn-default'>查询</button>
         </form>
         <%}%>
     </div>
+    <div class='expand-top'></div>
     <table class='table table-striped table-hover'>
         <thead>
             <tr>
@@ -190,6 +272,7 @@
         <tbody>
         </tbody>
     </table>
+    <div class='expand-bottom'></div>
 </div>
 <nav class='nav-pager'>
 </nav>
@@ -255,13 +338,13 @@
      *              filters:[{
      *                  name:<string>,
      *                  label:<string>,
-     *                  type:C.ENUM.PARAM_TYPE_FILTER_*,
+     *                  type:C.ENUM.PARAM_TYPE_*,
      *                  placeholder:<string>
      *              }, ...],
-     *              sort:[{
-     *                  name:<string>,
-     *                  reverse:<bool>
-     *              }, ...],
+     *              sort:{
+     *                  <name>:<reverse>,
+     *                  ...
+     *              },
      *              range:[<int>,<int>]
      *          },
      *          pager:{
@@ -293,7 +376,7 @@
      *          url:<string>,
      *          filter:[{
      *              name:<string>,
-     *              type:C.ENUM.PARAM_TYPE_FILTER_*,
+     *              type:C.ENUM.PARAM_TYPE_*,
      *              parse:<function>,
      *          }, ...],
      *          sort:[{
@@ -303,8 +386,10 @@
      *          requestOnSearch:<bool>, // if true, init page without load data, only request on search
      *      }
      *  }
+     * @param $dom <jquery dom>
+     * @param callback <post success function>
      */
-    R.table = function(elements, $dom){
+    R.table = function(elements, $dom, callback){
         var table= {
             head:[],
             form:{},
@@ -325,20 +410,18 @@
                 table.form.filters.push({
                     name:ele.name,
                     label:ele.text || ele.name,
-                    type:ele.type || C.ENUM.PARAM_TYPE_FILTER_TEXT,
-                    placeholder:ele.placeholder || ele.name,
+                    type:ele.type || C.ENUM.PARAM_TYPE_TEXT,
+                    placeholder:ele.placeholder || '',
                     list:ele.list || [],
+                    break_line:ele.break_line || false,
+                    parse:ele.parse,
                     value:ele.default_value || ''
                 });
             });
         }
         // init sort
         if (elements.action.sort) {
-            table.form.sort = [];
-            _.map(elements.action.sort, function(ele){
-                ele.type = C.ENUM.PARAM_TYPE_STATIC;
-                table.form.sort.push(ele);
-            });
+            table.form.sort = elements.action.sort;
         }
         // init range
         if (elements.action.range) {
@@ -349,6 +432,9 @@
         var pageSize = table.form.range[1];
 
         var generalPager = function(range){
+            if (elements.no_pager) {
+                return false;
+            }
             var current = parseInt(range[0] / range[1]) + 1;
             var start = current - 5;
             var end = start + 10;
@@ -362,14 +448,16 @@
         table.form.pager = generalPager(table.form.range);
         var loadData = function(table, $root){
             // general param
-            H.action('get', elements.action.url, [{
+            H.general('post', elements.action.url, [{
                 name:'filter',
-                type:C.ENUM.PARAM_TYPE_ARRAY,
+                type:C.ENUM.PARAM_TYPE_PARENT,
                 value:table.form.filters
             },{
                 name:'sort',
-                type:C.ENUM.PARAM_TYPE_ARRAY,
-                value:table.form.sort
+                type:C.ENUM.PARAM_TYPE_TEXT,
+                multiple:function(){
+                    return table.form.sort;
+                }
             },{
                 name:'range',
                 type:C.ENUM.PARAM_TYPE_TEXT,
@@ -377,21 +465,23 @@
                     return table.form.range
                 }
             }], function(res){
+                typeof callback == 'function' && callback(res);
                 // build table body
                 table.body = [];
-                _.map(res, function(row){
+                _.map(res.list, function(row,k1){
+                    _.map(row, function(v,k2){
+                        res.list[k1][k2] = (v === 0 || v) ? v : '-';
+                    });
+                });
+                _.map(res.list, function(row){
                     var rowData = {};
                     _.map(elements.data, function(ele){
                         var data = row[ele.name];
                         if (typeof ele.render === 'function'){
-                            rowData[ele.name] = {
-                                value:ele.render(data, row)
-                            };
-                        } else {
-                            rowData[ele.name] = {
-                                value:data
-                            };
+                            data = ele.render(data, row)
                         }
+                        data = (data==0||data) ? data:'-';
+                        rowData[ele.name] = {value:data};
                     });
                     table.body.push(rowData);
                 });
@@ -434,6 +524,12 @@
         if ($dom) {
             $dom.html($tableDom);
         }
+        $tableDom.find('.date').find('input').datetimepicker({
+            autoclose:true,
+            minView:'month',
+            format:'yyyy-mm-dd',
+            todayBtn:'linked'
+        });
         if (elements.action.requestOnSearch !== true) {
             loadData(table, $tableDom);
         }
@@ -469,6 +565,16 @@
     R.modal = function(elements){
         $modal.find('h4').html(elements.title);
         $modal.find('div.modal-body').html(typeof elements.body === 'function' ? elements.body() : elements.body);
+        if (typeof elements.beforAction === 'function') {
+            $modal.on('show.bs.modal', function(){
+                elements.beforAction($modal);
+            });
+        }
+        if (typeof elements.afterAction === 'function') {
+            $modal.on('hide.bs.modal', function(){
+                elements.afterAction($modal);
+            });
+        }
         return $modal;
     };
 })();
@@ -493,12 +599,118 @@
 })();
 </script>
 <script>
-    R.datetimepicker = function($dom){
-        $dom.datetimepicker({
-            format:'yyyy-mm-dd hh:ii:ss',
-            todayBtn:'linked'
-        }).on('changeDate', function(ev){
-            $dom.datetimepicker('hide');
+    R.datetimepicker = function(name, conf){
+        var $doms = [
+            $('input[name='+name+']'),
+            $('input[name='+name+'_from]'),
+            $('input[name='+name+'_to]')
+        ];
+        _.map($doms, function($dom){
+            $dom.datetimepicker({
+                autoclose:true,
+                minView:'month',
+                format:'yyyy-mm-dd',
+                todayBtn:'linked'
+            });
         });
+    };
+</script>
+<script id='template-chart' type='text/template'>
+<div class='echart' style='width:<%=width%>;height:<%=height%>;'></div>
+</script>
+<script>
+    R.chart = function($dom, width, height){
+        if (height === undefined) {
+            height = '300px';
+        }
+        if (width === undefined) {
+            width = '100%';
+        }
+        var div = $(_.template($('#template-chart').html())({
+            width:width,
+            height:height
+        }));
+        if ($dom) {
+            $dom.html(div);
+        }
+        return echarts.init(div[0]);
+    };
+    R.chartOption = function(conf){
+        switch (conf.type) {
+            case 'axis':
+                var option = {
+                    title: {
+                        text:conf.title,
+                        left:'center'
+                    },
+                    tooltip:{
+                        trigger:'axis',
+                        axisPointer:{
+                            animation:false
+                        }
+                    },
+                    dataZoom:[{
+                        show:false,
+                        realtime:true,
+                        start:0,
+                        end:100,
+                        xAxisIndex:[0]
+                    },{
+                        type:'inside',
+                        realtime:true,
+                        start:0,
+                        end:100,
+                        xAxisIndex:[0]
+                    }],
+                    grid:{
+                        show:true
+                    },
+                    legend: {
+                        top:'30',
+                        left:'100',
+                        data:conf.legend_data
+                    },
+                    xAxis: conf.xAxis,
+                    yAxis: conf.yAxis,
+                    series: conf.series
+                };
+                return option;
+                break;
+            case 'calendar':
+                var option = {
+                    title: {
+                        text:conf.title,
+                        left:'center'
+                    },
+                    tooltip:{
+                        trigger:'item'
+                    },
+                    visualMap:{
+                        show:false,
+                        min:conf.min,
+                        max:conf.max
+                    },
+                    calendar:[{
+                        top:100,
+                        left:'center',
+                        dayLabel:{
+                            nameMap:'cn'
+                        },
+                        range:conf.range,
+                        yearLabel:{
+                            formatter: '{start}-{end}'
+                        }
+                    }],
+                    series:[{
+                        type: 'heatmap',
+                        coordinateSystem: 'calendar',
+                        data:conf.data
+                    }]
+                };
+                return option;
+                break;
+            default:
+                return null;
+        }
     };
 </script>

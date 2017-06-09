@@ -28,13 +28,15 @@
 <script>
 $('form').submit(function(e){
     e.preventDefault();
-    H.action('post', '/login', [{
+    H.general('post', '/login', [{
         name:'username',
         type:C.ENUM.PARAM_TYPE_TEXT
     }, {
         name:'password',
         type:C.ENUM.PARAM_TYPE_TEXT
-    }], U.login, function(){});
+    }], U.login, function(res){
+        alert(JSON.stringify(res));
+    });
 });
 </script>
 </html>

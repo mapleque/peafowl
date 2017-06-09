@@ -12,16 +12,29 @@
         BTN_TYPE_GET:'get',
 
         PARAM_TYPE_HIDE:'hide',
+        PARAM_TYPE_TEMPLATE:'template',
         PARAM_TYPE_STATIC:'static',
         PARAM_TYPE_TEXT:'text',
         PARAM_TYPE_RADIO:'radio',
         PARAM_TYPE_AREA:'area',
-        PARAM_TYPE_ARRAY:'array',
+        PARAM_TYPE_DATE:'date',
+        PARAM_TYPE_DATETIME:'datetime',
         PARAM_TYPE_PARENT:'parent',
-        PARAM_TYPE_FILTER_TEXT:'filter_text',
-        PARAM_TYPE_FILTER_RADIO:'filter_radio',
+        PARAM_TYPE_RANGE:'range',
+        PARAM_TYPE_DATE_RANGE:'date_range',
 
         _DOC_:'enum elements'
+    };
+    C.MAP = {
+        bool:{
+            0:'否',
+            1:'是'
+        },
+        sex:{
+            0:'男',
+            1:'女'
+        },
+        _DOC_:'map elements'
     };
     C.STATUS = {
         ERROR_SUCCESS:              0,

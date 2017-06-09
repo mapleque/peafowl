@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<!--#include file='include/head.html' -->
+<!--#include file='include/nav.html' -->
+<div class='container'>
+    <h1>Chart</h1>
+    <div id='body'></div>
+</div>
+<!--#include file='include/foot.html' -->
+<!--#include file='include/template.html' -->
+<script>
+(function(){
+    var myChart = R.chart($('#body'));
+    var option = {
+        visualMap: {
+            show: false,
+            min: 0,
+            max: 1000
+        },
+        calendar: {
+            range: '2017'
+        },
+        series: {
+            type: 'heatmap',
+            coordinateSystem: 'calendar',
+            data: [['2017-01-01', 900], ['2017-01-02', 877], ['2017-01-05', 699]]
+        }
+    }
+    myChart.setOption(option);
+})();
+</script>
+</html>

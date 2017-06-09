@@ -7,6 +7,33 @@
     if (typeof H === 'undefined') {
         H = {};
     }
+
+    var post = function(url, data, success, error) {
+        console.log('[send]', url, JSON.stringify(data));
+        $.ajax({
+            url:url,
+            type:'POST',
+            data:{data:JSON.stringify(data)},
+            success:function(res){
+                console.log('[recv]', url, res);
+                typeof success === 'function' && success(res);
+            },
+            error:function(res){
+                console.error('[recv]', url, res);
+                typeof errorFn === 'function' && errorFn(res);
+            }
+        });
+    };
+    H.action = function(url, data, success, error) {
+        var info = S.get('info');
+        if (info) {
+            //data.token = info.token;
+            url += '.php?token=' + info.token;
+        } else {
+            url += '.php?token=';
+        }
+        post(url, data, success, error);
+    };
     /**
      * @param url <string>
      * @param param {<key>:<form_bean>, ...} | [ <form bean>, ... ]
@@ -19,7 +46,10 @@
      * @param successFn <function>
      * @param errorFn <function>
      */
-    H.action = function(method, url, param, successFn, errorFn) {
+    H.general = function(method, url, param, successFn, errorFn, $form) {
+        if (typeof $form === 'undefined') {
+            $form = $(document.body);
+        }
         R.loading(true);
         var buildOne = function(formBean){
             if (typeof formBean !== 'object') {
@@ -29,7 +59,7 @@
                 return null;
             }
             if (typeof formBean.type === 'undefined') {
-                return null;
+                formBean.type = C.ENUM.PARAM_TYPE_TEXT;
             }
             if (formBean.type == C.ENUM.PARAM_TYPE_STATIC) {
                 var ret = {};
@@ -47,33 +77,43 @@
             } else {
                 switch (formBean.type) {
                     case C.ENUM.PARAM_TYPE_AREA:
-                        value = $('textarea[name='+formBean.name+']').val();
+                        value = $form.find('textarea[name='+formBean.name+']').val();
+                        if (typeof formBean.parse === 'function') {
+                            value = formBean.parse(value);
+                        }
                         break;
                     case C.ENUM.PARAM_TYPE_RADIO:
-                    case C.ENUM.PARAM_TYPE_FILTER_RADIO:
-                        value = $('input[name='+formBean.name+']:checked').val();
+                        value = $form.find('input[name='+formBean.name+']:checked').val();
+                        if (value !== undefined && typeof formBean.parse === 'function') {
+                            value = formBean.parse(value);
+                        }
+                        break;
+                    case C.ENUM.PARAM_TYPE_RANGE:
+                    case C.ENUM.PARAM_TYPE_DATE_RANGE:
+                        var from = $form.find('input[name='+formBean.name+'_from]').val();
+                        var to = $form.find('input[name='+formBean.name+'_to]').val();
+                        if ((from === 0 || (from && from !=  ''))
+                            && (to === 0 || (to && to != ''))) {
+                            if (typeof formBean.parse === 'function') {
+                                value = [
+                                    formBean.parse(from),
+                                    formBean.parse(to)
+                                ];
+                            } else {
+                                value = [ from, to ];
+                            }
+                        }
                         break;
                     case C.ENUM.PARAM_TYPE_TEXT:
                     default:
-                        value = $('input[name='+formBean.name+']').val();
-                }
-            }
-            if (typeof formBean.parse === 'function') {
-                value = formBean.parse(value);
-            }
-            if (formBean.type === C.ENUM.PARAM_TYPE_FILTER_TEXT
-                    || formBean.type === C.ENUM.PARAM_TYPE_FILTER_RADIO) {
-                if (value && value != '') {
-                    return {
-                        name:formBean.name,
-                        value:value
-                    };
-                } else {
-                    return null;
+                        value = $form.find('input[name='+formBean.name+']').val();
+                        if (typeof formBean.parse === 'function') {
+                            value = formBean.parse(value);
+                        }
                 }
             }
             var ret = {};
-            if (value && value != '') {
+            if (value === 0 || (value && value != '')) {
                 ret[formBean.name] = value;
             }
             return ret;
@@ -84,21 +124,11 @@
                 return result;
             }
             _.map(param, function(ele){
-                if (ele.type === C.ENUM.PARAM_TYPE_ARRAY) {
-                    _.map(ele.value, function(item){
-                        var ret = buildOne(item);
-                        if (!_.isEmpty(ret)) {
-                            if (typeof result[ele.name] === 'undefined') {
-                                result[ele.name] = [];
-                            }
-                            result[ele.name].push(ret);
-                        }
-                    });
-                } else if (ele === C.ENUM.PARAM_TYPE_PARENT) {
-                        var ret = buildParam(ele.value);
-                        if (!_.isEmpty(ret)) {
-                            result[ele.name] = ret;
-                        }
+                if (ele.type === C.ENUM.PARAM_TYPE_PARENT) {
+                    var ret = buildParam(ele.value);
+                    if (!_.isEmpty(ret)) {
+                        result[ele.name] = ret;
+                    }
                 } else {
                     var ret = buildOne(ele);
                     if (!_.isEmpty(ret)) {
@@ -108,57 +138,115 @@
             })
             return result;
         };
+        var processParam = function(param){
+            var result = {};
+            _.map(param, function(value, key){
+                if (key.indexOf('___') > 0) {
+                    var child = result;
+                    var parent = result;
+                    var lastIndex = null;
+                    _.map(key.split('___'), function(index){
+                        if (typeof child[index] === 'undefined') {
+                            child[index] = {};
+                        }
+                        lastIndex = index;
+                        parent = child;
+                        child = child[index];
+                    });
+                    parent[lastIndex] = value;
+                } else {
+                    result[key] = value;
+                }
+            });
+            return result;
+        };
         var data = buildParam(param);
-        var info = S.get('info');
-        if (info) {
-            //data.token = info.token;
-            url += '?token=' + info.token;
-        } else {
-            url += '?token=';
-        }
-        console.log('[send]', url, JSON.stringify(data));
-        var method = method.toUpperCase();
-        if (method === 'GET') {
-            var search = [];
-            _.map(data, function(value, key){
-                search.push(key + '=' + JSON.stringify(value));
-            })
-            data = null;
-            url += '&' + search.join('&');
-        }
-        $.ajax({
-            url:url,
-            type:method,
-            data:data,
-            success:function(res){
-                console.log('[recv]', url, res);
+        data = processParam(data);
+        if (url) {
+            var info = S.get('info');
+            if (info) {
+                //data.token = info.token;
+                url += '.php?token=' + info.token;
+            } else {
+                url += '.php?token=';
+            }
+            var method = method.toUpperCase();
+            if (method === 'GET') {
+                var search = [];
+                _.map(data, function(value, key){
+                    search.push(key + '=' + JSON.stringify(value));
+                })
+                data = null;
+                url += '&' + search.join('&');
+            }
+            post(url, data, function(res){
                 R.loading(false);
                 if (typeof res !== 'object') {
                     typeof errorFn === 'function' ? errorFn(res) : alert('server error, '+res+'');
+                    return;
                 }
-                if (res.code == C.STATUS.SUCCESS) {
+                if (res.status== C.STATUS.ERROR_SUCCESS) {
                     successFn(res.data);
-                } else if (res.code == C.STATUS.INVALID_TOKEN) {
-                    var href = U.parseUrl().href;
-                    U.logout(encodeURIComponent(href));
-                } else if (res.code == C.STATUS.INVALID_PRIVILEGE) {
+                } else if (res.status== C.STATUS.INVALID_PRIVILEGE) {
                     alert(res.msg);
                 } else {
-                    typeof errorFn === 'function' ? errorFn(res) : alert('server error, '+res.code+','+res.msg);
+                    typeof errorFn === 'function' ? errorFn(res) : alert('server error, '+res.status+','+res.msg);
                 }
-            },
-            error:function(res){
+            }, function(res){
                 R.loading(false);
-                console.error('[error]', url, res);
                 typeof errorFn === 'function' ? errorFn(res) : alert('server error!');
-            }
-        });
+            });
+        } else {
+            R.loading(false);
+            successFn(data, param);
+        }
     };
 
     // util
     if (typeof U === 'undefined') {
         U = {};
     }
+    U.formatDate = function(date){
+        if (date.length == 8) {
+            return date.substr(0,4) + '-' + date.substr(4,2) + '-' + date.substr(6,2);
+        }
+        return date;
+    };
+    U.formatAmount = function(amount){
+        if (typeof amount != 'number') {
+            amount = parseFloat(amount);
+        }
+        var yuan = parseInt(amount);
+        var jiao = parseInt((amount - yuan) * 10);
+        var fen = parseInt((amount - yuan) * 100) - jiao * 10;
+        var yuanstr = '' + yuan;
+        var length = yuanstr.length;
+        var ret = '';
+        for (var i = 3; i <= length; i+=3) {
+            ret = ',' + yuanstr.substr(length -i, 3) + ret;
+        }
+        ret = yuanstr.substr(0, length % 3) + ret;
+        if (ret[0] == ',') {
+            ret = ret.substr(1);
+        }
+        if (fen == 0 && jiao == 0) {
+            return ret;
+        }
+        return ret + '.' + jiao + fen;
+    };
+    U.formatNumber = function(number){
+        var inum = parseInt(number);
+        var istr = '' + inum;
+        var iret = '';
+        for (var i = 3; i <= istr.length; i += 3) {
+            iret = ',' + istr.substr(istr.length - i, 3) + iret;
+        }
+        iret = istr.substr(0, istr.length % 3) + iret;
+        if (iret[0] == ',') {
+            iret = iret.substr(1);
+        }
+        return iret;
+    };
     U.parseDatetime = function(date){
         var formatInt = function(v){
             return v < 10 ? ('0' + v) : v;
@@ -169,6 +257,9 @@
             + formatInt(date.getHours()) + ':'
             + formatInt(date.getMinutes()) + ':'
             + formatInt(date.getSeconds());
+    };
+    U.parseDate = function(date){
+        return U.parseDatetime(date).substr(0,10);
     };
     U.parseUrl = function() {
         var pu = function(str){
@@ -211,6 +302,10 @@
             U.go('/login.html');
         }
     };
+    // info = {
+    //  username:<string>,
+    //  privilege:<p>,...
+    // }
     U.login = function(info) {
         S.set('info', info);
         var redirect = U.parseUrl().search.get('redirect');
